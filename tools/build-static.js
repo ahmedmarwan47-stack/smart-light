@@ -48,6 +48,17 @@ const write = (rel, data) => {
   fs.writeFileSync(dest, data);
 };
 
+/* --------------------------------------------------------------- version */
+
+// Cache-bust the injected assets. Without this the HTML points at a stable
+// filename, and Pages' own cache headers plus the browser's disk cache can keep
+// serving a previous build long after a deploy.
+const bundleJs = fs.readFileSync(path.join(SRC, '_bundle', 'bundle.js'), 'utf8');
+const bundleCss = fs.readFileSync(path.join(SRC, '_bundle', 'bundle.css'), 'utf8');
+const VERSION = crypto.createHash('md5')
+  .update(bundleJs + bundleCss + fs.readFileSync(__filename, 'utf8'))
+  .digest('hex').slice(0, 8);
+
 /* ----------------------------------------------------------------- inputs */
 
 fs.rmSync(OUT, { recursive: true, force: true });
@@ -123,9 +134,9 @@ function rewritePaths(text) {
       `"${BASE}/$1`);
 }
 
-const INJECT = `<link rel="stylesheet" href="${BASE}/assets/bundle.css">`
-  + `<script src="${BASE}/assets/imgfix.js"></script>`
-  + `<script defer src="${BASE}/assets/bundle.js"></script></head>`;
+const INJECT = `<link rel="stylesheet" href="${BASE}/assets/bundle.css?v=${VERSION}">`
+  + `<script src="${BASE}/assets/imgfix.js?v=${VERSION}"></script>`
+  + `<script defer src="${BASE}/assets/bundle.js?v=${VERSION}"></script></head>`;
 
 function buildDoc(html) {
   let out = rewriteImages(html);
@@ -162,9 +173,6 @@ for (const [hash, { file, ext }] of images) {
 
 /* ------------------------------------------------ bundle assets + routes */
 
-const bundleJsSrc = path.join(SRC, '_bundle', 'bundle.js');
-let bundleJs = fs.readFileSync(bundleJsSrc, 'utf8');
-
 // Every bundle product image becomes a plain file under assets/media.
 const slugs = [...bundleJs.matchAll(/storage\/media\/([0-9a-f-]+\.webp)/g)].map((m) => m[1]);
 let copied = 0;
@@ -181,7 +189,7 @@ for (const name of new Set(slugs)) {
 }
 
 write(path.join('assets', 'bundle.js'), bundleJs);
-write(path.join('assets', 'bundle.css'), fs.readFileSync(path.join(SRC, '_bundle', 'bundle.css')));
+write(path.join('assets', 'bundle.css'), bundleCss);
 
 // Bundles open at /?bundle=<slug>, which is a route Next already knows, so its
 // router hydrates the page instead of tearing the shell down. /bundle/<slug>/
@@ -259,7 +267,7 @@ write(path.join('assets', 'imgfix.js'), `(function () {
     setTimeout(function () { queued = false; sweep(); }, 0);
   }
 
-  fetch(BASE + '/assets/image-map.json')
+  fetch(BASE + '/assets/image-map.json?v=' + "${VERSION}")
     .then(function (r) { return r.json(); })
     .then(function (m) { MAP = m; sweep(); })
     .catch(function () { /* fall back to prefixing only */ });
@@ -283,3 +291,4 @@ console.log(`images       ${images.size}`);
 console.log(`media copied ${copied}/${new Set(slugs).size}`);
 console.log(`other files  ${passthrough.length}`);
 console.log(`base path    ${BASE || '(root)'}`);
+console.log(`asset version ${VERSION}`);
