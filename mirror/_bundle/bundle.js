@@ -412,7 +412,9 @@ function injectCards() {
     .find((h) => /featured products/i.test(h.textContent));
   const swiper = heading?.closest('section')?.querySelector('.swiper');
   const wrapper = swiper?.querySelector('.swiper-wrapper');
-  if (!wrapper) return false;
+  // Wait for a real slide to copy sizing from: on a cold load the wrapper can
+  // mount empty, and measuring nothing would throw.
+  if (!wrapper?.querySelector('.swiper-slide')) return false;
 
   // Borrow the live slide width so the cards line up with their neighbours.
   const width = getComputedStyle(wrapper.querySelector('.swiper-slide')).width;
@@ -648,17 +650,25 @@ function boot() {
   }
 
   document.documentElement.classList.remove('sl-bundle-active');
-  // Everywhere else: keep the cart badge honest and fill the drawer when opened.
-  syncBadges();
-  new MutationObserver(guard(() => { syncBadges(); renderCartLines(); }))
-    .observe(document.body, { childList: true, subtree: true });
 
-  // Hydration swaps the header out from under us, so re-apply while it settles.
-  const settle = Date.now() + 6000;
-  const badgeTimer = setInterval(() => {
-    syncBadges();
-    if (Date.now() > settle) clearInterval(badgeTimer);
-  }, 250);
+  const onHome = ENTRY === '/' || ENTRY === '/ar';
+  // Everywhere else: keep the cart badge honest, fill the drawer when opened,
+  // and keep the bundle cards in the carousel. All three are idempotent, so the
+  // observer settles as soon as the page does.
+  const sync = () => {
+    // Each step is independent: a failure in one must not stop the others, and
+    // must never stop the heartbeat.
+    try { syncBadges(); } catch (e) { /* keep going */ }
+    try { renderCartLines(); } catch (e) { /* keep going */ }
+    if (onHome) { try { injectCards(); } catch (e) { /* keep going */ } }
+  };
+  sync();
+  new MutationObserver(guard(sync)).observe(document.body, { childList: true, subtree: true });
+
+  // A slow heartbeat as well as the observer: on a cold load the carousel can
+  // mount later than any mutation we happen to be watching, and a re-render can
+  // drop our cards long after hydration looked finished.
+  setInterval(sync, 1000);
 
   // Wishlist hearts on the bundle cards.
   document.addEventListener('click', (e) => {
@@ -668,14 +678,6 @@ function boot() {
     toggleFav(btn.dataset.slFav, btn);
   });
 
-  if (ENTRY === '/' || ENTRY === '/ar') {
-    // React hydration replaces the carousel after first paint, so keep trying
-    // briefly until the cards stick.
-    let tries = 0;
-    const timer = setInterval(() => {
-      if (injectCards() || ++tries > 40) clearInterval(timer);
-    }, 250);
-  }
 }
 
 if (document.readyState === 'loading') {
