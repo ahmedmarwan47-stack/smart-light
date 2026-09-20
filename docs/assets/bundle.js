@@ -308,8 +308,9 @@ function totalsRow(panel, label) {
   return li?.querySelector('.whitespace-nowrap') || null;
 }
 
-/* "Add X more for free delivery" progress bar, matching the jaad storefront:
-   caption above, cream track, lime fill, hidden on an empty basket. */
+/* "Add X more for free delivery" progress bar: caption above the bar, hidden
+   on an empty basket, flipping to the earned line at the threshold. Reuses the
+   builder's own .sl-bar, so it reads as part of the site. */
 function renderFreeShip(panel) {
   // The site's own goods total is whatever React rendered before syncTotal
   // folded our bundles in — stash it there, so nothing is counted twice.
@@ -330,8 +331,8 @@ function renderFreeShip(panel) {
   if (!box) {
     box = el(`<div data-sl-freeship class="sl-freeship">
       <p class="sl-freeship-msg" data-sl-freeship-msg></p>
-      <div class="sl-freeship-track">
-        <div class="sl-freeship-fill" data-sl-freeship-fill style="width:0%"></div>
+      <div class="sl-bar">
+        <div class="sl-bar-fill" data-sl-freeship-fill style="width:0%"></div>
       </div>
     </div>`);
     // Above the promo field, where the reference puts it.
@@ -353,9 +354,10 @@ function renderFreeShip(panel) {
 
   const msg = box.querySelector('[data-sl-freeship-msg]');
   const html = toFree > 0
-    ? `Add <span class="sl-freeship-amt">EGP ${toFree.toFixed(2)}</span> to get free shipping`
-    : '\u{1F389} Congratulations! Your delivery is free';
+    ? `Add <span class="sl-freeship-amt">${egp(toFree)}</span> for free delivery`
+    : 'Free delivery unlocked';
   if (msg.innerHTML !== html) msg.innerHTML = html;
+  msg.classList.toggle('is-done', toFree === 0);
 }
 
 function renderCartLines() {
