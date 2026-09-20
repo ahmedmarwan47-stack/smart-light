@@ -489,7 +489,6 @@ function builderMarkup(b) {
           <div class="sl-rows">${rows}</div>
 
           <div class="sl-quick">
-            <button type="button" class="sl-link" data-act="even">Split evenly</button>
             <button type="button" class="sl-link" data-act="clear">Clear all</button>
           </div>
 
@@ -597,13 +596,6 @@ function mountBuilder(b) {
     switch (btn.dataset.act) {
       case 'inc': if (!complete()) qty[i]++; break;
       case 'dec': if (qty[i] > 0) qty[i]--; break;
-      case 'even': {
-        // Spread the bundle across all four, handing the remainder to the first rows.
-        const base = Math.floor(b.size / b.items.length);
-        const extra = b.size % b.items.length;
-        qty = b.items.map((_, k) => base + (k < extra ? 1 : 0));
-        break;
-      }
       case 'clear': qty = b.items.map(() => 0); break;
       case 'add': return addToCart();
       default: return;
