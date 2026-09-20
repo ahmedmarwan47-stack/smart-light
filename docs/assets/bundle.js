@@ -238,6 +238,9 @@ function heartButton(slug) {
 
 const cartTotal = () => readCart().reduce((a, l) => a + l.price * l.qty, 0);
 
+// Spend this much on goods (delivery excluded) and delivery is free.
+const FREE_SHIP = 1500;
+
 function cartPanel() {
   const heading = [...document.querySelectorAll('span, h1, h2, h3, p')]
     .find((e) => !e.children.length && /^my cart$/i.test(e.textContent.trim()));
@@ -298,6 +301,63 @@ function syncTotal(panel) {
   span.textContent = out;
 }
 
+// Read a money figure out of a labelled row in the drawer's totals list.
+function totalsRow(panel, label) {
+  const li = [...panel.querySelectorAll('li')]
+    .find((n) => new RegExp(`^${label}$`, 'i').test(n.firstElementChild?.textContent.trim() || ''));
+  return li?.querySelector('.whitespace-nowrap') || null;
+}
+
+/* "Add X more for free delivery" progress bar, matching the jaad storefront:
+   caption above, cream track, lime fill, hidden on an empty basket. */
+function renderFreeShip(panel) {
+  // The site's own goods total is whatever React rendered before syncTotal
+  // folded our bundles in — stash it there, so nothing is counted twice.
+  const totalSpan = totalsRow(panel, 'total');
+  const stashed = totalSpan && totalSpan.dataset.slBase;
+  const siteTotal = stashed !== undefined && stashed !== ''
+    ? Number(stashed)
+    : parseFloat((totalSpan?.textContent || '').replace(/[^\d.]/g, '')) || 0;
+
+  const shipSpan = totalsRow(panel, 'shipping fees');
+  const shipping = parseFloat((shipSpan?.textContent || '').replace(/[^\d.]/g, '')) || 0;
+
+  // Delivery is not part of what earns free delivery.
+  const sub = Math.max(0, siteTotal - shipping) + cartTotal();
+  const empty = sub <= 0;
+
+  let box = panel.querySelector('[data-sl-freeship]');
+  if (!box) {
+    box = el(`<div data-sl-freeship class="sl-freeship">
+      <p class="sl-freeship-msg" data-sl-freeship-msg></p>
+      <div class="sl-freeship-track">
+        <div class="sl-freeship-fill" data-sl-freeship-fill style="width:0%"></div>
+      </div>
+    </div>`);
+    // Above the promo field, where the reference puts it.
+    const promo = panel.querySelector('input[placeholder*="Promo" i], input[placeholder*="promo" i]');
+    const anchor = promo?.closest('div')?.parentElement || panel.querySelector('ul.styled-scrollbar')?.parentElement;
+    if (anchor) anchor.parentElement.insertBefore(box, anchor);
+    else panel.appendChild(box);
+  }
+
+  if (box.hidden !== empty) box.hidden = empty;
+  if (empty) return;
+
+  const toFree = Math.max(0, FREE_SHIP - sub);
+  const pct = Math.min(100, (sub / FREE_SHIP) * 100);
+
+  const fill = box.querySelector('[data-sl-freeship-fill]');
+  const width = `${pct}%`;
+  if (fill.style.width !== width) fill.style.width = width;
+
+  const msg = box.querySelector('[data-sl-freeship-msg]');
+  const html = toFree > 0
+    ? `Add <span class="sl-freeship-amt">EGP ${toFree.toFixed(2)}</span> to get free shipping`
+    : '\u{1F389} Congratulations! Your delivery is free';
+  if (msg.innerHTML !== html) msg.innerHTML = html;
+}
+
 function renderCartLines() {
   const panel = cartPanel();
   if (!panel) return;
@@ -308,6 +368,7 @@ function renderCartLines() {
     panel.querySelectorAll('[data-sl-line]').forEach((n) => n.remove());
     panel.querySelectorAll('[data-sl-list]').forEach((n) => n.remove());
     syncTotal(panel);
+    renderFreeShip(panel);
     return;
   }
 
@@ -356,6 +417,7 @@ function renderCartLines() {
   }
 
   syncTotal(panel);
+  renderFreeShip(panel);
 }
 
 /* ------------------------------------------------------- the product card */

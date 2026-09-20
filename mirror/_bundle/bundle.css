@@ -136,3 +136,22 @@ html.sl-bundle-active main { display: none !important; }
 
 /* Bundle rows in the cart drawer reuse the site own classes, so they need
    no styles of their own. */
+
+/* ------------------------------------------ free-delivery progress bar */
+/* Matches the jaad storefront: caption above a cream track with a lime
+   fill. Colours are that build's bg-cream / bg-limeFigma / text-ink. */
+
+.sl-freeship { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px 4px; }
+.sl-freeship[hidden] { display: none; }
+
+.sl-freeship-msg { font-size: 12px; line-height: 20px; color: rgb(0 54 22); margin: 0; }
+.sl-freeship-amt { font-weight: 700; }
+
+.sl-freeship-track {
+  width: 100%; height: 8px; border-radius: 999px; overflow: hidden;
+  background: rgb(253 248 241);
+}
+.sl-freeship-fill {
+  height: 100%; border-radius: 999px; background: rgb(152 202 85);
+  transition: width 500ms;
+}
