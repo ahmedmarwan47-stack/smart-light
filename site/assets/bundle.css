@@ -1,0 +1,138 @@
+/* Smart Light — bundle builder. Colours lifted from the site's own tokens. */
+:root {
+  --sl-blue: rgb(0, 114, 200);
+  --sl-navy: rgb(12, 35, 64);
+  --sl-ink: rgb(15, 33, 58);
+  --sl-muted: rgb(98, 106, 118);
+  --sl-gray-5: rgb(243, 244, 245);
+  --sl-gray-10: rgb(231, 233, 235);
+  --sl-gray-20: rgb(214, 215, 217);
+}
+
+/* On /bundle the homepage body stays in the DOM (so React keeps its tree
+   intact) but is hidden — only the header and footer show through. */
+html.sl-bundle-active main { display: none !important; }
+
+/* The card's 2x2 preview of what's in the bundle. */
+.sl-card-collage {
+  width: 100%; height: 100%; background: #fff;
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 4px; padding: 8px;
+}
+.sl-card-collage img { width: 100%; height: 100%; min-height: 0; object-fit: contain; mix-blend-mode: multiply; }
+
+.sl-bundle-page {
+  background: var(--sl-gray-5);
+  padding: 24px 0 64px;
+  font-family: Montserrat, ui-sans-serif, system-ui, sans-serif;
+  color: var(--sl-ink);
+}
+
+.sl-crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--sl-muted); margin-bottom: 20px; }
+.sl-crumbs a { color: var(--sl-muted); }
+.sl-crumbs a:hover { color: var(--sl-blue); }
+
+.sl-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 32px; align-items: start; }
+@media (max-width: 900px) { .sl-grid { grid-template-columns: 1fr; gap: 20px; } }
+
+/* ------------------------------------------------------------------ hero */
+
+.sl-hero { position: relative; background: #fff; border-radius: 20px; padding: 24px; position: sticky; top: 16px; }
+@media (max-width: 900px) { .sl-hero { position: static; } }
+
+.sl-stage {
+  width: 100%; aspect-ratio: 1; background: #fff; border-radius: 16px;
+  display: grid; place-items: center; overflow: hidden;
+}
+.sl-stage img { width: 100%; height: 100%; object-fit: scale-down; mix-blend-mode: multiply; }
+
+/* Thumbnail pill, matching the product pages' gallery. */
+.sl-thumbs {
+  position: absolute; left: 20px; bottom: 20px; z-index: 10;
+  display: flex; gap: 6px; background: #fff; padding: 4px;
+  border-radius: 999px; border: 1px solid var(--sl-gray-10);
+}
+.sl-thumb {
+  width: 44px; height: 44px; flex: none; border-radius: 999px; overflow: hidden;
+  background: var(--sl-gray-20); border: 2px solid transparent;
+  transition: border-color .2s; cursor: pointer;
+}
+.sl-thumb.is-active { border-color: var(--sl-blue); }
+.sl-thumb img { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: multiply; }
+.sl-hero-badge {
+  position: absolute; top: 34px; left: 34px; background: var(--sl-blue); color: #fff;
+  font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  border-radius: 999px; padding: 6px 14px;
+}
+
+/* ----------------------------------------------------------------- panel */
+
+.sl-panel { background: #fff; border-radius: 20px; padding: 28px; }
+@media (max-width: 600px) { .sl-panel, .sl-hero { padding: 18px; } }
+
+.sl-title { font-size: 30px; font-weight: 700; line-height: 1.2; }
+@media (max-width: 600px) { .sl-title { font-size: 24px; } }
+.sl-sub { margin-top: 8px; color: var(--sl-muted); font-size: 15px; line-height: 1.5; }
+
+.sl-price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; margin: 20px 0 4px; }
+.sl-price-now { font-size: 30px; font-weight: 700; color: var(--sl-blue); }
+.sl-price-was { font-size: 16px; color: var(--sl-muted); text-decoration: line-through; }
+
+/* -------------------------------------------------------------- progress */
+
+.sl-progress { margin: 22px 0; }
+.sl-progress-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; margin-bottom: 8px; gap: 12px; }
+.sl-count strong { font-size: 17px; }
+.sl-left { color: var(--sl-muted); font-weight: 500; }
+.sl-left.is-done { color: #0a8a3d; font-weight: 600; }
+
+.sl-bar { height: 8px; background: var(--sl-gray-10); border-radius: 999px; overflow: hidden; }
+.sl-bar-fill { height: 100%; background: var(--sl-blue); border-radius: 999px; transition: width .25s ease; }
+
+/* ------------------------------------------------------------------ rows */
+
+.sl-rows { display: flex; flex-direction: column; gap: 10px; }
+
+.sl-row {
+  display: flex; align-items: center; gap: 14px; padding: 12px;
+  border: 1px solid var(--sl-gray-10); border-radius: 14px; transition: border-color .2s, background .2s;
+}
+.sl-row.is-picked { border-color: var(--sl-blue); background: rgba(0, 114, 200, .04); }
+
+.sl-row-img { width: 60px; height: 60px; flex: none; background: var(--sl-gray-5); border-radius: 10px; padding: 6px; }
+.sl-row-img img { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; }
+
+.sl-row-info { flex: 1; min-width: 0; }
+.sl-row-name { font-size: 15px; font-weight: 600; line-height: 1.3; }
+.sl-row-meta { font-size: 12px; color: var(--sl-muted); margin-top: 4px; }
+.sl-row-meta strong { color: var(--sl-ink); font-weight: 600; }
+
+.sl-stepper { display: flex; align-items: center; gap: 4px; flex: none; background: var(--sl-gray-5); border-radius: 999px; padding: 4px; }
+.sl-step {
+  width: 32px; height: 32px; border-radius: 999px; background: #fff; color: var(--sl-ink);
+  font-size: 18px; line-height: 1; display: grid; place-items: center; transition: background .15s, color .15s;
+}
+.sl-step:hover:not(:disabled) { background: var(--sl-blue); color: #fff; }
+.sl-step:disabled { opacity: .35; cursor: not-allowed; }
+.sl-qty { min-width: 26px; text-align: center; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ----------------------------------------------------------------- quick */
+
+.sl-quick { display: flex; gap: 18px; margin: 16px 0 20px; }
+.sl-link { font-size: 13px; font-weight: 600; color: var(--sl-blue); text-decoration: underline; text-underline-offset: 3px; }
+.sl-link:hover { color: var(--sl-navy); }
+
+/* ------------------------------------------------------------------- cta */
+
+.sl-add {
+  width: 100%; height: 52px; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 999px; background: var(--sl-blue); color: #fff;
+  font-size: 16px; font-weight: 600; transition: background .2s, opacity .2s;
+}
+.sl-add:hover:not(:disabled) { background: var(--sl-navy); }
+.sl-add:disabled { background: var(--sl-gray-20); color: var(--sl-muted); cursor: not-allowed; }
+.sl-add-icon { width: 16px; height: 16px; flex: none; display: block; }
+.sl-add-icon[hidden] { display: none; }
+
+.sl-note { text-align: center; font-size: 12px; color: var(--sl-muted); margin-top: 10px; }
+
+/* Bundle rows in the cart drawer reuse the site own classes, so they need
+   no styles of their own. */
