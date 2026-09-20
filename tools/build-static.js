@@ -1,5 +1,6 @@
 /*
- * Build a static, GitHub-Pages-ready copy of the mirror into site/.
+ * Build a static, GitHub-Pages-ready copy of the mirror into docs/.
+ * (GitHub Pages only serves from the repo root or /docs.)
  *
  * The local dev server does three things at request time that Pages cannot:
  *   1. injects the bundle CSS/JS into every HTML document,
@@ -13,7 +14,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const SRC = path.join(__dirname, '..', 'mirror');
-const OUT = path.join(__dirname, '..', 'site');
+const OUT = path.join(__dirname, '..', 'docs');
 const BASE = process.env.BASE_PATH ?? '/smart-light';
 
 // Same key the dev server used when it cached a query-string URL.

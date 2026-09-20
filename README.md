@@ -28,10 +28,10 @@ product, and the cards, pages and cart all follow.
 ## Layout
 
     mirror/            the mirrored site; mirror/_bundle/ is the feature source
-    site/              the built static site that GitHub Pages serves
+    docs/              the built static site that GitHub Pages serves
     server.js          dev server: mirrors on demand, injects the feature
-    tools/build-static.js   turns mirror/ into site/
-    tools/preview.js   serves site/ at the deploy subpath
+    tools/build-static.js   turns mirror/ into docs/
+    tools/preview.js   serves docs/ at the deploy subpath
 
 ## Working on it
 

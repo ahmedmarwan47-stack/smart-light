@@ -1,6 +1,6 @@
-// Serve site/ under the project-page subpath, the way GitHub Pages will.
+// Serve docs/ under the project-page subpath, the way GitHub Pages will.
 const http = require('http'), fs = require('fs'), path = require('path');
-const ROOT = path.join(__dirname, '..', 'site');
+const ROOT = path.join(__dirname, '..', 'docs');
 const BASE = process.env.BASE_PATH ?? '/smart-light';
 const PORT = process.env.PORT || 4000;
 const TYPES = { '.html':'text/html', '.js':'application/javascript', '.css':'text/css', '.webp':'image/webp',
