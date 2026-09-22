@@ -9,6 +9,31 @@
  * Add a bundle, rename one, change its size or swap a product entirely from
  * the BUNDLES array below; the cards, the pages and the cart all follow.
  */
+/*
+ * Variant axes. A product can go into a bundle more than once under different
+ * variants -- 4 bulbs as 2 warm and 2 white -- so a line in the builder is a
+ * product AND a variant, never just a product. Variants never move the price:
+ * every unit counts as one of the bundle's `size`, whichever variant it is.
+ *
+ * All four products in a bundle share the bundle's axes, so they hang off the
+ * bundle rather than off each item.
+ */
+const BULB_AXES = [
+  { name: 'Light', options: ['Warm', 'White', 'Blue', 'Tri-Color'] },
+  { name: 'Watt', options: ['5 W', '16 W', '24 W'] },
+  { name: 'Cap Base', options: ['E26', 'E27', 'G4'] },
+];
+
+const SPOTLIGHT_AXES = [
+  { name: 'Light', options: ['Warm', 'White', 'Tri-Color'] },
+  { name: 'Watt', options: ['5 W', '7 W', '12 W'] },
+];
+
+const DOWNLIGHT_AXES = [
+  { name: 'Light', options: ['Warm', 'White', 'Tri-Color'] },
+  { name: 'Watt', options: ['12 W', '18 W', '24 W'] },
+];
+
 const BUNDLES = [
   {
     slug: 'home-essentials-bulb-pack',
@@ -17,6 +42,7 @@ const BUNDLES = [
     size: 12,
     price: 999,
     compareAt: 1260, // what `size` of the priciest item would have cost
+    axes: BULB_AXES,
     items: [
       { name: 'LED Classic Bulbs',                slug: 'led-classic-bulbs',            unit: 105, img: 'https://backend.smartlighteg.com/storage/media/3f320e9c-fb1d-4e74-9e7d-f705b9a310b0.webp' },
       { name: 'LED Classic Bulb 12W & 3 Colours', slug: 'led-classic-bulb-3-colours',   unit: 100, img: 'https://backend.smartlighteg.com/storage/media/9f4dff33-70a9-4a0b-8571-f7eea768d58a.webp' },
@@ -31,6 +57,7 @@ const BUNDLES = [
     size: 10,
     price: 699,
     compareAt: 920,
+    axes: SPOTLIGHT_AXES,
     items: [
       { name: 'LED Spotlight Lamps',                              slug: 'led-spotlight-lamps',                            unit: 63, img: 'https://backend.smartlighteg.com/storage/media/84a67c24-79d9-4eda-87a3-c5c517c1532f.webp' },
       { name: 'LED Spotlight 5W & 3 Colours Lamp',                slug: 'led-spotlight-3-colours-lamp',                   unit: 81, img: 'https://backend.smartlighteg.com/storage/media/84a67c24-79d9-4eda-87a3-c5c517c1532f.webp' },
@@ -45,6 +72,7 @@ const BUNDLES = [
     size: 8,
     price: 899,
     compareAt: 1024,
+    axes: DOWNLIGHT_AXES,
     items: [
       { name: 'Round Recessed LED Plastic Downlights',  slug: 'round-recessed-led-plastic-downlights',  unit: 105, img: 'https://backend.smartlighteg.com/storage/media/b2420529-393c-47c1-8d76-94ee675c10c4.webp' },
       { name: 'Square Recessed LED Plastic Downlights', slug: 'square-recessed-led-plastic-downlights', unit: 105, img: 'https://backend.smartlighteg.com/storage/media/9a8c4ec1-2cbf-4c8c-bdc8-50e4d83a3649.webp' },
@@ -55,6 +83,9 @@ const BUNDLES = [
 ];
 
 const CART_KEY = 'sl_bundle_cart';
+// Lines are what the builder stores now: one entry per product+variant.
+const linesKey = (b) => `sl_bundle_lines_${b.slug}`;
+// The pre-variants key, still read once so an in-progress bundle survives.
 const qtyKey = (b) => `sl_bundle_qty_${b.slug}`;
 
 // The site's own add-to-cart glyph, reused verbatim so the buttons match.
@@ -117,14 +148,38 @@ function guard(fn) {
 
 /* ------------------------------------------------------------ builder state */
 
-function loadQty(b) {
+// A variant is an option per axis, in axis order: ['Warm', '16 W', 'E27'].
+const defaultVariant = (b) => b.axes.map((a) => a.options[0]);
+const variantLabel = (v) => v.join(' \u00b7 ');
+// Identity of a line, so the same product+variant merges instead of doubling.
+const lineKey = (i, v) => `${i}|${v.join('|')}`;
+
+function loadLines(b) {
+  const valid = (l) => l
+    && Number.isInteger(l.i) && l.i >= 0 && l.i < b.items.length
+    && Array.isArray(l.v) && l.v.length === b.axes.length
+    && l.v.every((opt, k) => b.axes[k].options.includes(opt))
+    && Number.isInteger(l.n) && l.n > 0;
+
   try {
-    const saved = JSON.parse(localStorage.getItem(qtyKey(b)));
-    if (Array.isArray(saved) && saved.length === b.items.length
-      && saved.every((n) => Number.isInteger(n) && n >= 0)
-      && saved.reduce((a, c) => a + c, 0) <= b.size) return saved;
+    const saved = JSON.parse(localStorage.getItem(linesKey(b)));
+    if (Array.isArray(saved) && saved.every(valid)
+      && saved.reduce((a, l) => a + l.n, 0) <= b.size) {
+      return saved.map((l) => ({ i: l.i, v: l.v.slice(), n: l.n }));
+    }
   } catch { /* first visit, or storage blocked */ }
-  return b.items.map(() => 0);
+
+  // Written before variants existed: one line per product, default variant.
+  try {
+    const old = JSON.parse(localStorage.getItem(qtyKey(b)));
+    if (Array.isArray(old) && old.length === b.items.length
+      && old.every((n) => Number.isInteger(n) && n >= 0)
+      && old.reduce((a, c) => a + c, 0) <= b.size) {
+      return old.flatMap((n, i) => (n > 0 ? [{ i, v: defaultVariant(b), n }] : []));
+    }
+  } catch { /* nothing to carry over */ }
+
+  return [];
 }
 
 /* ------------------------------------------------------------------- cart */
@@ -251,7 +306,9 @@ function cartPanel() {
   return empty ? (empty.closest('.flex.h-fit') || empty.closest('[role="dialog"]')) : null;
 }
 
-// One bundle row, byte-for-byte the site's own cart-line markup.
+// One bundle row in the site's own cart-line markup, plus one addition it has
+// no equivalent for: the mix. Two bundles can hold the same products in
+// different variants, so without it they would be two identical-looking rows.
 function cartRow(line, i) {
   return `
   <li class="flex items-center justify-between  first:pt-0" data-sl-line="${i}">
@@ -261,6 +318,8 @@ function cartRow(line, i) {
       </a>
       <div class="flex flex-col gap-1">
         <a href="/bundle/${line.slug}"><h6 class="font-semibold text-primaryDark text-sm">${line.name}</h6></a>
+        ${line.mix.length ? `<ul class="sl-cart-mix">${line.mix.map((m) => `
+          <li>${m.qty} &times; ${m.name}${m.variant ? ` &mdash; ${m.variant}` : ''}</li>`).join('')}</ul>` : ''}
         <div class="flex items-center gap-2">
           <span class="text-sm font-semibold text-primaryBlue"><span class="whitespace-nowrap">${egp(line.price)}.00</span></span>
           <span class="text-xs font-semibold text-secondaryText line-through"><span class="whitespace-nowrap">${egp(line.compareAt)}.00</span></span>
@@ -494,21 +553,95 @@ function injectCards() {
 
 /* ----------------------------------------------------------- the builder */
 
-function builderMarkup(b) {
-  const rows = b.items.map((it, i) => `
-    <div class="sl-row" data-row="${i}">
+/* --------------------------------------------------------- variant rows */
+
+// One product's block. Collapsed until something is picked; once it is, the
+// product's own line disappears and each variant gets a line of its own.
+function rowMarkup(b, i, lines, picker, done) {
+  const it = b.items[i];
+  const mine = lines.filter((l) => l.i === i);
+  const n = mine.reduce((a, l) => a + l.n, 0);
+  const open = !!picker && picker.i === i;
+
+  const head = `
+    <div class="sl-row-head">
       <div class="sl-row-img"><img src="${img(it.img)}" alt="${it.name}" loading="lazy"></div>
       <div class="sl-row-info">
         <p class="sl-row-name">${it.name}</p>
         <p class="sl-row-meta">Sold separately at ${egp(it.unit)}</p>
       </div>
+      ${n > 0 ? `<span class="sl-row-count">${n} in bundle</span>` : `
       <div class="sl-stepper" role="group" aria-label="Quantity of ${it.name}">
-        <button type="button" class="sl-step" data-act="dec" data-i="${i}" aria-label="Remove one ${it.name}">&minus;</button>
-        <output class="sl-qty" data-qty="${i}" aria-live="polite">0</output>
-        <button type="button" class="sl-step" data-act="inc" data-i="${i}" aria-label="Add one ${it.name}">+</button>
+        <button type="button" class="sl-step" disabled aria-label="Remove one ${it.name}">&minus;</button>
+        <output class="sl-qty" aria-live="polite">0</output>
+        <button type="button" class="sl-step" data-act="first" data-i="${i}" ${done ? 'disabled' : ''}
+                aria-label="Add one ${it.name}">+</button>
+      </div>`}
+    </div>`;
+
+  if (n === 0) return `<div class="sl-row" data-row="${i}">${head}</div>`;
+
+  const lineRows = mine.map((l) => {
+    const key = lineKey(l.i, l.v);
+    const label = variantLabel(l.v);
+    return `
+      <div class="sl-line" data-line="${key}">
+        <p class="sl-line-name">${label}</p>
+        <div class="sl-stepper" role="group" aria-label="Quantity of ${it.name}, ${label}">
+          <button type="button" class="sl-step" data-act="dec" data-key="${key}" ${l.n < 2 ? 'disabled' : ''}
+                  aria-label="Remove one ${label}">&minus;</button>
+          <output class="sl-qty" aria-live="polite">${l.n}</output>
+          <button type="button" class="sl-step" data-act="inc" data-key="${key}" ${done ? 'disabled' : ''}
+                  aria-label="Add one ${label}">+</button>
+        </div>
+        <button type="button" class="sl-line-rm" data-act="rm" data-key="${key}"
+                aria-label="Remove ${label} from the bundle">&times;</button>
+      </div>`;
+  }).join('');
+
+  // The picker takes the link's place rather than sitting beside it, so the
+  // counter above it never leaves the screen.
+  const tail = open
+    ? pickerMarkup(b, i, picker.v, done)
+    : `
+      <button type="button" class="sl-add-variant" data-act="picker" data-i="${i}" ${done ? 'disabled' : ''}>
+        <span class="sl-add-variant-icon" aria-hidden="true">+</span>Add another variant
+      </button>`;
+
+  return `
+    <div class="sl-row is-picked${open ? ' is-open' : ''}" data-row="${i}">
+      ${head}
+      <div class="sl-row-body">
+        <div class="sl-lines">${lineRows}</div>
+        ${tail}
+      </div>
+    </div>`;
+}
+
+// The same axes the product pages use, inline inside the row.
+function pickerMarkup(b, i, draft, done) {
+  const axes = b.axes.map((a, k) => `
+    <div class="sl-axis">
+      <p class="sl-axis-name">${a.name}</p>
+      <div class="sl-chips">
+        ${a.options.map((o) => `
+          <button type="button" class="sl-chip${draft[k] === o ? ' is-on' : ''}"
+                  data-act="chip" data-axis="${k}" data-opt="${o}"
+                  aria-pressed="${draft[k] === o}">${o}</button>`).join('')}
       </div>
     </div>`).join('');
 
+  return `
+    <div class="sl-picker" role="group" aria-label="Choose a variant of ${b.items[i].name}">
+      ${axes}
+      <div class="sl-picker-actions">
+        <button type="button" class="sl-picker-add" data-act="commit" ${done ? 'disabled' : ''}>Add to bundle</button>
+        <button type="button" class="sl-link" data-act="cancel">Cancel</button>
+      </div>
+    </div>`;
+}
+
+function builderMarkup(b) {
   // Gallery: one frame per product in the bundle, using the same stage and
   // thumbnail pill the real product pages use.
   const thumbs = b.items.map((it, i) => `
@@ -550,7 +683,7 @@ function builderMarkup(b) {
             <div class="sl-bar"><div class="sl-bar-fill" data-fill style="width:0%"></div></div>
           </div>
 
-          <div class="sl-rows">${rows}</div>
+          <div class="sl-rows" data-rows></div>
 
           <div class="sl-quick">
             <button type="button" class="sl-link" data-act="clear">Clear all</button>
@@ -579,10 +712,33 @@ function mountBuilder(b) {
   main.after(root);
   document.title = `${b.name} - Smart Light`;
 
-  let qty = loadQty(b);
-  const total = () => qty.reduce((a, c) => a + c, 0);
+  // One entry per product+variant: { i: item index, v: variant, n: units }.
+  let lines = loadLines(b);
+  // Which row has its variant picker open, and the draft variant inside it.
+  let picker = null;
+
+  const total = () => lines.reduce((a, l) => a + l.n, 0);
   const remaining = () => b.size - total();
   const complete = () => remaining() === 0;
+  const findLine = (key) => lines.find((l) => lineKey(l.i, l.v) === key);
+
+  // Adding a variant already in the bundle bumps that line instead of
+  // opening a second, identical one.
+  function addLine(i, v) {
+    if (complete()) return;
+    const found = findLine(lineKey(i, v));
+    if (found) { found.n += 1; return; }
+    lines.push({ i, v: v.slice(), n: 1 });
+    lines.sort((a, c) => a.i - c.i);
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(linesKey(b), JSON.stringify(lines));
+      // Its job is done; leaving it would shadow nothing but confuse.
+      localStorage.removeItem(qtyKey(b));
+    } catch { /* storage blocked */ }
+  }
 
   function paint() {
     const t = total();
@@ -595,13 +751,10 @@ function mountBuilder(b) {
     left.textContent = done ? 'Bundle complete' : `${remaining()} left to pick`;
     left.classList.toggle('is-done', done);
 
-    qty.forEach((n, i) => {
-      root.querySelector(`[data-qty="${i}"]`).textContent = n;
-      root.querySelector(`[data-act="dec"][data-i="${i}"]`).disabled = n === 0;
-      // The whole mechanic in one line: you may never exceed the bundle size.
-      root.querySelector(`[data-act="inc"][data-i="${i}"]`).disabled = done;
-      root.querySelector(`[data-row="${i}"]`).classList.toggle('is-picked', n > 0);
-    });
+    // Rows change shape as lines come and go, so they are redrawn rather than
+    // patched. The whole mechanic is still one rule: `done` disables every +.
+    root.querySelector('[data-rows]').innerHTML =
+      b.items.map((it, i) => rowMarkup(b, i, lines, picker, done)).join('');
 
     const add = root.querySelector('[data-act="add"]');
     add.disabled = !done;
@@ -624,10 +777,14 @@ function mountBuilder(b) {
 
   // One bundle = one line in the cart, priced at the bundle's fixed price and
   // counted like any other product. Re-adding the same mix bumps its quantity.
+  // The mix now names the variant too, so two bundles of the same products in
+  // different variants are two lines, not one -- and read as two in the drawer.
   function addToCart() {
-    const mix = b.items
-      .map((it, i) => ({ name: it.name, qty: qty[i] }))
-      .filter((m) => m.qty > 0);
+    const mix = lines.map((l) => ({
+      name: b.items[l.i].name,
+      variant: variantLabel(l.v),
+      qty: l.n,
+    }));
 
     const cart = readCart();
     const same = cart.find((l) => l.slug === b.slug && JSON.stringify(l.mix) === JSON.stringify(mix));
@@ -639,7 +796,7 @@ function mountBuilder(b) {
         name: b.name,
         price: b.price,
         compareAt: b.compareAt,
-        img: b.items[qty.findIndex((n) => n > 0)].img,
+        img: b.items[lines[0].i].img,
         mix,
         qty: 1,
       });
@@ -656,15 +813,29 @@ function mountBuilder(b) {
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
     const i = Number(btn.dataset.i);
+    const line = findLine(btn.dataset.key);
 
     switch (btn.dataset.act) {
-      case 'inc': if (!complete()) qty[i]++; break;
-      case 'dec': if (qty[i] > 0) qty[i]--; break;
-      case 'clear': qty = b.items.map(() => 0); break;
+      // A product with variants still has to start somewhere: + on an untouched
+      // row adds the default variant rather than making you open the picker.
+      case 'first': addLine(i, defaultVariant(b)); break;
+      case 'inc': if (line && !complete()) line.n += 1; break;
+      // Stops at 1 so a line is only ever dropped deliberately, with the x.
+      case 'dec': if (line && line.n > 1) line.n -= 1; break;
+      case 'rm':
+        lines = lines.filter((l) => lineKey(l.i, l.v) !== btn.dataset.key);
+        // The picker belongs to a row that may have just emptied out.
+        if (picker && !lines.some((l) => l.i === picker.i)) picker = null;
+        break;
+      case 'picker': picker = { i, v: defaultVariant(b) }; break;
+      case 'chip': if (picker) picker.v[Number(btn.dataset.axis)] = btn.dataset.opt; break;
+      case 'commit': if (picker) { addLine(picker.i, picker.v); picker = null; } break;
+      case 'cancel': picker = null; break;
+      case 'clear': lines = []; picker = null; break;
       case 'add': return addToCart();
       default: return;
     }
-    try { localStorage.setItem(qtyKey(b), JSON.stringify(qty)); } catch { /* ignore */ }
+    save();
     paint();
   });
 
