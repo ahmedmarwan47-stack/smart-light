@@ -149,6 +149,8 @@ function guard(fn) {
 /* ------------------------------------------------------------ builder state */
 
 // A variant is an option per axis, in axis order: ['Warm', '16 W', 'E27'].
+// Nothing in the builder defaults a variant -- you choose it. This exists only
+// to give carts saved before variants a variant to land on.
 const defaultVariant = (b) => b.axes.map((a) => a.options[0]);
 const variantLabel = (v) => v.join(' \u00b7 ');
 // Identity of a line, so the same product+variant merges instead of doubling.
@@ -243,7 +245,12 @@ function openSiteCart() {
 // rows inside its real item list, using its own markup so they are
 // indistinguishable from a normal product line.
 
-const CART_TRASH = `<span class="w-4 h-4 text-gray-40"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18.3377 3.3002H15.4502V2.66269C15.4502 1.5377 14.5502 0.637695 13.4252 0.637695H10.5377C9.4127 0.637695 8.5127 1.5377 8.5127 2.66269V3.3002H5.6252C4.5377 3.3002 3.6377 4.2002 3.6377 5.28769V6.41269C3.6377 7.2377 4.1252 7.91269 4.8377 8.21269L5.4377 21.1877C5.5127 22.4252 6.4877 23.3627 7.7252 23.3627H16.1627C17.4002 23.3627 18.4127 22.3877 18.4502 21.1877L19.1252 8.17519C19.8377 7.87519 20.3252 7.16269 20.3252 6.3752V5.2502C20.3252 4.2002 19.4252 3.3002 18.3377 3.3002ZM10.2377 2.66269C10.2377 2.4752 10.3877 2.3252 10.5752 2.3252H13.4627C13.6502 2.3252 13.8002 2.4752 13.8002 2.66269V3.3002H10.2752V2.66269H10.2377ZM5.3627 5.28769C5.3627 5.1377 5.4752 4.9877 5.6627 4.9877H18.3377C18.4877 4.9877 18.6377 5.1002 18.6377 5.28769V6.41269C18.6377 6.5627 18.5252 6.71269 18.3377 6.71269H5.6627C5.5127 6.71269 5.3627 6.60019 5.3627 6.41269V5.28769ZM16.2002 21.6752H7.8002C7.4627 21.6752 7.2002 21.4127 7.2002 21.1127L6.6002 8.40019H17.4377L16.8377 21.1127C16.8002 21.4127 16.5377 21.6752 16.2002 21.6752Z" fill="currentColor"></path></svg></span>`;
+const TRASH_PATH = 'M18.3377 3.3002H15.4502V2.66269C15.4502 1.5377 14.5502 0.637695 13.4252 0.637695H10.5377C9.4127 0.637695 8.5127 1.5377 8.5127 2.66269V3.3002H5.6252C4.5377 3.3002 3.6377 4.2002 3.6377 5.28769V6.41269C3.6377 7.2377 4.1252 7.91269 4.8377 8.21269L5.4377 21.1877C5.5127 22.4252 6.4877 23.3627 7.7252 23.3627H16.1627C17.4002 23.3627 18.4127 22.3877 18.4502 21.1877L19.1252 8.17519C19.8377 7.87519 20.3252 7.16269 20.3252 6.3752V5.2502C20.3252 4.2002 19.4252 3.3002 18.3377 3.3002ZM10.2377 2.66269C10.2377 2.4752 10.3877 2.3252 10.5752 2.3252H13.4627C13.6502 2.3252 13.8002 2.4752 13.8002 2.66269V3.3002H10.2752V2.66269H10.2377ZM5.3627 5.28769C5.3627 5.1377 5.4752 4.9877 5.6627 4.9877H18.3377C18.4877 4.9877 18.6377 5.1002 18.6377 5.28769V6.41269C18.6377 6.5627 18.5252 6.71269 18.3377 6.71269H5.6627C5.5127 6.71269 5.3627 6.60019 5.3627 6.41269V5.28769ZM16.2002 21.6752H7.8002C7.4627 21.6752 7.2002 21.4127 7.2002 21.1127L6.6002 8.40019H17.4377L16.8377 21.1127C16.8002 21.4127 16.5377 21.6752 16.2002 21.6752Z';
+
+const CART_TRASH = `<span class="w-4 h-4 text-gray-40"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="${TRASH_PATH}" fill="currentColor"></path></svg></span>`;
+
+// The same glyph a step down, for a variant line whose count is at one.
+const STEP_TRASH = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="${TRASH_PATH}" fill="currentColor"></path></svg>`;
 
 const CART_MINUS = `<svg width="14" height="2" viewBox="0 0 14 2" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-primaryBlue"><path d="M13.0001 1H1.00012" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"></path></svg>`;
 
@@ -574,28 +581,30 @@ function rowMarkup(b, i, lines, picker, done) {
       <div class="sl-stepper" role="group" aria-label="Quantity of ${it.name}">
         <button type="button" class="sl-step" disabled aria-label="Remove one ${it.name}">&minus;</button>
         <output class="sl-qty" aria-live="polite">0</output>
-        <button type="button" class="sl-step" data-act="first" data-i="${i}" ${done ? 'disabled' : ''}
-                aria-label="Add one ${it.name}">+</button>
+        <button type="button" class="sl-step" data-act="picker" data-i="${i}" ${done || open ? 'disabled' : ''}
+                aria-label="Choose a variant of ${it.name}">+</button>
       </div>`}
     </div>`;
 
-  if (n === 0) return `<div class="sl-row" data-row="${i}">${head}</div>`;
+  // Nothing picked and nothing being picked: the row stays a single line.
+  if (n === 0 && !open) return `<div class="sl-row" data-row="${i}">${head}</div>`;
 
   const lineRows = mine.map((l) => {
     const key = lineKey(l.i, l.v);
     const label = variantLabel(l.v);
+    // At one, the minus becomes the delete: there is no zero to sit at, so
+    // the line goes. Same move the site's own cart drawer makes.
+    const last = l.n < 2;
     return `
       <div class="sl-line" data-line="${key}">
         <p class="sl-line-name">${label}</p>
         <div class="sl-stepper" role="group" aria-label="Quantity of ${it.name}, ${label}">
-          <button type="button" class="sl-step" data-act="dec" data-key="${key}" ${l.n < 2 ? 'disabled' : ''}
-                  aria-label="Remove one ${label}">&minus;</button>
+          <button type="button" class="sl-step${last ? ' is-remove' : ''}" data-act="dec" data-key="${key}"
+                  aria-label="${last ? `Remove ${label} from the bundle` : `Remove one ${label}`}">${last ? STEP_TRASH : '&minus;'}</button>
           <output class="sl-qty" aria-live="polite">${l.n}</output>
           <button type="button" class="sl-step" data-act="inc" data-key="${key}" ${done ? 'disabled' : ''}
                   aria-label="Add one ${label}">+</button>
         </div>
-        <button type="button" class="sl-line-rm" data-act="rm" data-key="${key}"
-                aria-label="Remove ${label} from the bundle">&times;</button>
       </div>`;
   }).join('');
 
@@ -609,17 +618,21 @@ function rowMarkup(b, i, lines, picker, done) {
       </button>`;
 
   return `
-    <div class="sl-row is-picked${open ? ' is-open' : ''}" data-row="${i}">
+    <div class="sl-row${n > 0 ? ' is-picked' : ''}${open ? ' is-open' : ''}" data-row="${i}">
       ${head}
       <div class="sl-row-body">
-        <div class="sl-lines">${lineRows}</div>
+        ${mine.length ? `<div class="sl-lines">${lineRows}</div>` : ''}
         ${tail}
       </div>
     </div>`;
 }
 
-// The same axes the product pages use, inline inside the row.
+// The same axes the product pages use, inline inside the row. Nothing is
+// chosen up front -- picking the variant IS the act of adding one, so there
+// is no default to accept by accident.
 function pickerMarkup(b, i, draft, done) {
+  const ready = draft.every((o) => o !== null);
+
   const axes = b.axes.map((a, k) => `
     <div class="sl-axis">
       <p class="sl-axis-name">${a.name}</p>
@@ -635,9 +648,10 @@ function pickerMarkup(b, i, draft, done) {
     <div class="sl-picker" role="group" aria-label="Choose a variant of ${b.items[i].name}">
       ${axes}
       <div class="sl-picker-actions">
-        <button type="button" class="sl-picker-add" data-act="commit" ${done ? 'disabled' : ''}>Add to bundle</button>
+        <button type="button" class="sl-picker-add" data-act="commit" ${done || !ready ? 'disabled' : ''}>Add to bundle</button>
         <button type="button" class="sl-link" data-act="cancel">Cancel</button>
       </div>
+      ${ready ? '' : '<p class="sl-picker-hint">Choose an option in each row to add it.</p>'}
     </div>`;
 }
 
@@ -816,20 +830,20 @@ function mountBuilder(b) {
     const line = findLine(btn.dataset.key);
 
     switch (btn.dataset.act) {
-      // A product with variants still has to start somewhere: + on an untouched
-      // row adds the default variant rather than making you open the picker.
-      case 'first': addLine(i, defaultVariant(b)); break;
       case 'inc': if (line && !complete()) line.n += 1; break;
-      // Stops at 1 so a line is only ever dropped deliberately, with the x.
-      case 'dec': if (line && line.n > 1) line.n -= 1; break;
-      case 'rm':
-        lines = lines.filter((l) => lineKey(l.i, l.v) !== btn.dataset.key);
-        // The picker belongs to a row that may have just emptied out.
-        if (picker && !lines.some((l) => l.i === picker.i)) picker = null;
+      case 'dec':
+        if (!line) break;
+        // One is the floor, not zero: below it the line has no reason to exist,
+        // so the button has turned into a delete and takes the whole line.
+        if (line.n > 1) line.n -= 1;
+        else lines = lines.filter((l) => lineKey(l.i, l.v) !== btn.dataset.key);
         break;
-      case 'picker': picker = { i, v: defaultVariant(b) }; break;
+      // Nothing preselected: an axis stays empty until it is chosen.
+      case 'picker': picker = { i, v: b.axes.map(() => null) }; break;
       case 'chip': if (picker) picker.v[Number(btn.dataset.axis)] = btn.dataset.opt; break;
-      case 'commit': if (picker) { addLine(picker.i, picker.v); picker = null; } break;
+      case 'commit':
+        if (picker && picker.v.every((o) => o !== null)) { addLine(picker.i, picker.v); picker = null; }
+        break;
       case 'cancel': picker = null; break;
       case 'clear': lines = []; picker = null; break;
       case 'add': return addToCart();

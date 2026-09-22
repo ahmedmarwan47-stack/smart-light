@@ -53,7 +53,7 @@
     setTimeout(function () { queued = false; sweep(); }, 0);
   }
 
-  fetch(BASE + '/assets/image-map.json?v=' + "111dd5eb")
+  fetch(BASE + '/assets/image-map.json?v=' + "320fa398")
     .then(function (r) { return r.json(); })
     .then(function (m) { MAP = m; sweep(); })
     .catch(function () { /* fall back to prefixing only */ });
